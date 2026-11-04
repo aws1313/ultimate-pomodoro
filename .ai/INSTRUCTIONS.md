@@ -15,6 +15,8 @@
 - The human owner of this project may communicate with AI agents in **German or English**.
   Respond in whichever language the human uses in their message.
 - When in doubt, default to English for any artifact that ends up in the repository.
+- **Constructive Criticism & Proactive Suggestions:**
+  AI agents are explicitly expected to challenge, critique, and provide proactive improvement suggestions to the project owner at any time. This includes identifying flaws or ambiguities in prompts, suboptimal architectural or design decisions, edge cases that were overlooked, or deviations from project guidelines. Do not hesitate to disagree or propose a better alternative.
 
 ---
 
