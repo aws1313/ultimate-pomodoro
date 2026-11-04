@@ -43,6 +43,8 @@ class TimerForegroundService : Service(), KoinComponent {
     private lateinit var notificationManager: NotificationManager
 
     private var isForegroundActive = false
+    private var lastNotifiedSecond: Long = -1L
+    private var lastNotifiedStateClass: Class<*>? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -77,15 +79,31 @@ class TimerForegroundService : Service(), KoinComponent {
             .onEach { state ->
                 when (state) {
                     is TimerState.Running -> {
-                        updateNotification(state)
+                        val currentSecond = state.remainingMs / 1000
+                        val stateChanged = lastNotifiedStateClass != state::class.java
+                        if (stateChanged || currentSecond != lastNotifiedSecond) {
+                            lastNotifiedSecond = currentSecond
+                            lastNotifiedStateClass = state::class.java
+                            updateNotification(state)
+                        }
                     }
                     is TimerState.Paused -> {
-                        updateNotification(state)
+                        val currentSecond = state.remainingMs / 1000
+                        val stateChanged = lastNotifiedStateClass != state::class.java
+                        if (stateChanged || currentSecond != lastNotifiedSecond) {
+                            lastNotifiedSecond = currentSecond
+                            lastNotifiedStateClass = state::class.java
+                            updateNotification(state)
+                        }
                     }
                     is TimerState.Finished -> {
+                        lastNotifiedSecond = -1L
+                        lastNotifiedStateClass = state::class.java
                         updateNotification(state)
                     }
                     TimerState.Idle -> {
+                        lastNotifiedSecond = -1L
+                        lastNotifiedStateClass = null
                         if (isForegroundActive) {
                             stopForegroundAndSelf()
                         }
@@ -146,9 +164,22 @@ class TimerForegroundService : Service(), KoinComponent {
             is TimerState.Running -> {
                 val phaseName = phaseName(state.phase)
                 val targetWhen = System.currentTimeMillis() + state.remainingMs
+                val maxProgress = 1000
+                val elapsedMs = (state.totalMs - state.remainingMs).coerceAtLeast(0L)
+                val currentProgress = if (state.totalMs > 0) {
+                    ((elapsedMs * maxProgress) / state.totalMs).toInt().coerceIn(0, maxProgress)
+                } else {
+                    0
+                }
+                val percent = if (state.totalMs > 0) {
+                    ((elapsedMs * 100) / state.totalMs).toInt().coerceIn(0, 100)
+                } else {
+                    0
+                }
 
                 builder.setContentTitle("$phaseName in progress")
-                    .setContentText("Focus time remaining")
+                    .setContentText("$percent% completed • ${formatMs(state.remainingMs)} remaining")
+                    .setProgress(maxProgress, currentProgress, false)
                     .setUsesChronometer(true)
                     .setChronometerCountDown(true)
                     .setWhen(targetWhen)
@@ -166,8 +197,22 @@ class TimerForegroundService : Service(), KoinComponent {
             }
             is TimerState.Paused -> {
                 val phaseName = phaseName(state.phase)
+                val maxProgress = 1000
+                val elapsedMs = (state.totalMs - state.remainingMs).coerceAtLeast(0L)
+                val currentProgress = if (state.totalMs > 0) {
+                    ((elapsedMs * maxProgress) / state.totalMs).toInt().coerceIn(0, maxProgress)
+                } else {
+                    0
+                }
+                val percent = if (state.totalMs > 0) {
+                    ((elapsedMs * 100) / state.totalMs).toInt().coerceIn(0, 100)
+                } else {
+                    0
+                }
+
                 builder.setContentTitle("$phaseName (Paused)")
-                    .setContentText("Paused with ${formatMs(state.remainingMs)} remaining")
+                    .setContentText("Paused at $percent% • ${formatMs(state.remainingMs)} remaining")
+                    .setProgress(maxProgress, currentProgress, false)
                     .setUsesChronometer(false)
                     .setShowWhen(false)
                     .addAction(
@@ -184,7 +229,8 @@ class TimerForegroundService : Service(), KoinComponent {
             is TimerState.Finished -> {
                 val phaseName = phaseName(state.phase)
                 builder.setContentTitle("$phaseName Completed!")
-                    .setContentText("Tap to start next phase")
+                    .setContentText("Session finished. Tap to continue.")
+                    .setProgress(1000, 1000, false)
                     .setUsesChronometer(false)
                     .setShowWhen(false)
                     .addAction(
@@ -201,6 +247,7 @@ class TimerForegroundService : Service(), KoinComponent {
             TimerState.Idle -> {
                 builder.setContentTitle("Pomodoro Timer")
                     .setContentText("Ready to start")
+                    .setProgress(0, 0, false)
             }
         }
 
