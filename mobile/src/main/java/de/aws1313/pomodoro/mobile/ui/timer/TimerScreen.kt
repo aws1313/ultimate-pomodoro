@@ -1,5 +1,10 @@
 package de.aws1313.pomodoro.mobile.ui.timer
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -25,29 +30,59 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import de.aws1313.pomodoro.mobile.presentation.timer.TimerIntent
 import de.aws1313.pomodoro.mobile.presentation.timer.TimerUiState
 import de.aws1313.pomodoro.mobile.presentation.timer.TimerViewModel
+import de.aws1313.pomodoro.mobile.service.TimerForegroundService
 import de.aws1313.pomodoro.mobile.ui.theme.PomodoroTheme
 import de.aws1313.pomodoro.shared.domain.timer.model.TimerPhase
+import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun TimerRoute(
     modifier: Modifier = Modifier,
-    viewModel: TimerViewModel = viewModel(factory = TimerViewModel.provideFactory())
+    viewModel: TimerViewModel = koinViewModel()
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Request notification permission on Android 13+ (API 33+) for Live Updates
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val permissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { /* Handled by user */ }
+
+        LaunchedEffect(Unit) {
+            val permissionCheck = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            )
+            if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
+    // Automatically synchronize the Foreground Service with the active timer state
+    LaunchedEffect(uiState.isRunning) {
+        if (uiState.isRunning) {
+            TimerForegroundService.startService(context)
+        }
+    }
+
     TimerScreen(
         uiState = uiState,
         onIntent = viewModel::onIntent,
