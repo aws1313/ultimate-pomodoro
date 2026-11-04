@@ -127,6 +127,7 @@ class TimerForegroundService : Service(), KoinComponent {
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
         // Live Update / Promoted Ongoing request (for Android 16+ status bar chip)
         val promotedExtras = Bundle().apply {
@@ -226,6 +227,7 @@ class TimerForegroundService : Service(), KoinComponent {
         ).apply {
             description = "Shows active countdown and live progress in the status bar"
             setShowBadge(false)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
         notificationManager.createNotificationChannel(channel)
     }
